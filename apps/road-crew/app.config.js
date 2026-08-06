@@ -13,9 +13,10 @@ module.exports = ({ config }) => {
   return {
     ...config,
     version: APP_VERSION.release,
-    // The committed native `ios/` project makes this a "bare" project, where EAS
-    // Update does not support runtimeVersion policies (e.g. `appVersion`). Set an
-    // explicit string instead — using the release version reproduces exactly what
+    // Set as an explicit string rather than a policy (e.g. `appVersion`), so the
+    // runtime version stays stable whether or not a native project is checked in
+    // — a prebuilt `ios/` tree would make this a "bare" project, where EAS Update
+    // does not support policies at all. Using the release version reproduces what
     // the `appVersion` policy resolved to, and keeps it in sync automatically.
     runtimeVersion: APP_VERSION.release,
     updates: {

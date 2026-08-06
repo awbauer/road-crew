@@ -189,11 +189,11 @@ branches. A binary embeds an EAS *channel*; each channel points at an EAS
 | `beta` | `beta` | `preview` | TestFlight/internal installs |
 | `main` | `main` | `production` | App Store installs |
 
-Native binaries are cut separately, by **Xcode Cloud**, which builds automatically
-on pushes to the `beta-testflight` and `production` branches. Expo/EAS is used
-only for OTA — it never builds a binary. So `beta`/`main` ship JS-only OTA updates
-fast, while `beta-testflight`/`production` cut fresh native binaries in Xcode
-Cloud. The OTA workflow is gated by the `EXPO_TOKEN` repo secret and no-ops
+Native binaries are cut separately from a prebuilt native project (see Native
+builds below); Expo/EAS is used only for OTA here — this workflow never builds a
+binary. So `beta`/`main` ship JS-only OTA updates fast, while binaries are cut on
+whatever native pipeline you wire up. The OTA workflow is gated by the
+`EXPO_TOKEN` repo secret and no-ops
 cleanly when it is absent. Van install is a native platform capability: every
 native binary and OTA has it, while the hosted web app hard-disables it. No
 build or publishing environment variable controls that distinction.
@@ -211,15 +211,12 @@ eas channel:edit production --branch main
 Or set it in the Expo dashboard. Without this mapping, `eas update --branch <name>`
 publishes but no install resolves it.
 
-Because binaries are produced by `expo prebuild` + Xcode Cloud (not `eas
-build`), the EAS Update channel is **not** injected automatically. Each build
-must set `EXPO_UPDATE_CHANNEL` so `app.config.js` bakes the `expo-channel-name`
-update request header into the binary — set it as a custom environment variable
-in the Xcode Cloud workflow (`preview` on the TestFlight/internal workflow,
-`production` on the App Store workflow), and `export EXPO_UPDATE_CHANNEL=<channel>`
-before running `expo prebuild` for a local release build. A binary built without
-it embeds no channel and cannot receive OTA updates; `ci_post_clone.sh` warns
-when the variable is unset.
+Because binaries are produced by `expo prebuild` (not `eas build`), the EAS
+Update channel is **not** injected automatically. Each build must set
+`EXPO_UPDATE_CHANNEL` so `app.config.js` bakes the `expo-channel-name` update
+request header into the binary — `export EXPO_UPDATE_CHANNEL=<channel>` before
+running `expo prebuild`. A binary built without it embeds no channel and cannot
+receive OTA updates.
 
 ## Stack
 
@@ -272,69 +269,29 @@ npm --workspace apps/road-crew run export:web
 ```
 
 Most `expo-updates` APIs work only in release builds. Test automatic native
-updates with a `beta-testflight`/`production` Xcode Cloud build, not Expo Go.
+updates with a release build, not Expo Go.
 
-### Xcode Cloud
+### Native builds
 
-The tracked post-clone script regenerates iOS with Expo prebuild, then installs
-the pinned native toolchain: Node 22 and CocoaPods, both via Homebrew. It
-assumes the Xcode Cloud image provides Homebrew.
-
-CocoaPods is installed as a prebuilt Homebrew bottle rather than through
-`Gemfile`/Bundler. An earlier version of this script built CocoaPods' Ruby
-gem dependencies from source via Bundler, which broke when Xcode Cloud
-supplied an Intel Homebrew Ruby on an Apple Silicon host: Ruby's `mkmf`
-native-extension probes launched Clang targeting the wrong architecture, so
-checks failed incorrectly and gems like `json` compiled fallback code that
-conflicted with the real Ruby headers. Homebrew's CocoaPods bottle ships
-fully compiled, so no native-extension build ever runs in CI, which removes
-that failure class entirely (for `json` and for any other native gem
-CocoaPods might pick up later). The `Gemfile` at the app root still pins the
-CocoaPods version for local development (`bundle exec pod install`); the CI
-script parses that same pin and prints a warning (not a hard failure) if the
-Homebrew formula has drifted ahead of it, so version skew is visible instead
-of silent.
-
-In the Xcode Cloud workflow's Environment settings, select explicit supported
-Xcode and macOS versions instead of `Latest`. Review those pins deliberately
-when updating Expo or Xcode; automatic image upgrades can change Homebrew and
-compiler behavior without a repository change — this is what caused the
-native-extension failure above.
-
-Keep `Gemfile` and `ios/Podfile.lock` in sync; do not hand-edit generated
-Xcode build phases because the Expo config plugins recreate them during
-prebuild. The script preserves `ios/ci_scripts` across prebuild and logs any
-Podfile lock drift without failing a legitimate dependency update.
-
-Set `SENTRY_AUTH_TOKEN` as a secret Xcode Cloud environment variable and set
-`SENTRY_ORG` and `SENTRY_PROJECT` when source maps and debug symbols should be
-uploaded. When any value is absent, only Sentry upload is disabled; the Release
-build still must produce a non-empty embedded `main.jsbundle` or the generated
-verification phase fails the build.
-
-The GitHub EAS Update workflow passes `SENTRY_ORG` and `SENTRY_PROJECT` from
-repository Actions variables to the Expo config plugin. Configure those two
-non-secret variables in the repository settings so EAS updates generate Sentry
-properties without the missing-configuration warning.
-
-The universal app initializes Sentry with the configured production DSN on both
-native and production web builds. The browser uses `@sentry/browser` 10.25.0+
-and native uses the Sentry React Native adapter; both expose the same metrics
-adapter. Metrics are enabled in `Sentry.init()` and use the `road_crew.*`
-namespace for startup, heartbeat latency/outcomes, tracking toggles,
-session/install actions, route selection, push registration/background wakes,
-location tasks, and update checks. Sentry Logs are enabled on web and native;
-the console logging integration forwards `console.log`, `console.warn`, and
-`console.error`, and the app emits structured logs for monitoring startup,
-heartbeat failures, and tracking changes. Localhost and non-production web
-hosts keep Sentry disabled when no DSN is configured.
-
-To reproduce Xcode Cloud dependency setup locally, use a clean disposable Mac
-checkout or worktree because the script replaces the generated `ios/` tree:
+No native project is checked in. Generate one with Expo prebuild:
 
 ```bash
-CI_PRIMARY_REPOSITORY_PATH="$PWD" zsh apps/road-crew/ios/ci_scripts/ci_post_clone.sh
+npm --workspace apps/road-crew exec expo prebuild --platform ios
 ```
+
+That regenerates `ios/` from `app.json`, `app.config.js`, and the config plugins
+in `plugins/`, so the generated project is disposable — do not hand-edit it, and
+do not commit it. `Gemfile` pins the CocoaPods version for the `bundle exec pod
+install` you run against the generated tree.
+
+Set `EXPO_UPDATE_CHANNEL` before prebuilding a release binary so `app.config.js`
+bakes the `expo-channel-name` update header in; a binary built without it embeds
+no channel and cannot receive OTA updates.
+
+`plugins/with-ios-ci-build-environment.js` adds two build phases during prebuild:
+a Sentry debug-symbol upload (skipped unless `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`,
+and `SENTRY_PROJECT` are set) and a Release-only check that fails the build when
+the embedded `main.jsbundle` is missing.
 
 ## Structure
 
@@ -349,8 +306,8 @@ CI_PRIMARY_REPOSITORY_PATH="$PWD" zsh apps/road-crew/ios/ci_scripts/ci_post_clon
 | `src/update/` | Sync, automatic update, reset, and update toast flow |
 | `public/` | Web manifest, service worker, icons, and export assets |
 | `app.json` / `app.config.js` / `eas.json` | Static Expo settings, shared version/build federation, updates URL, and channels; `app.config.js` embeds the OTA channel from `EXPO_UPDATE_CHANNEL` |
-| `Gemfile` / `Gemfile.lock` / `ios/Podfile.lock` | Pinned CocoaPods version (local dev via Bundler) and native dependency graph |
-| `ios/ci_scripts/ci_post_clone.sh` | Reproducible Xcode Cloud Expo prebuild and Homebrew CocoaPods setup |
+| `Gemfile` / `Gemfile.lock` | Pinned CocoaPods version for `bundle exec pod install` after prebuild |
+| `plugins/` | Expo config plugins applied during prebuild (app icon, iOS build phases) |
 | `.github/workflows/eas-update.yml` | Publishes OTA updates: git `beta` → EAS branch `beta` (`preview` channel), git `main` → EAS branch `main` (`production` channel) |
 
 Current metadata is maintained in `packages/config/src/version.ts`.
