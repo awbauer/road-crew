@@ -1,0 +1,220 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      app: ${{ steps.filter.outputs.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            app:
+              - 'apps/road-crew/**'
+              - 'packages/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'playwright.config.js'
+              - '.github/workflows/test.yml'
+
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Run app (native) tests
+        run: |
+          node --test "apps/road-crew/__tests__/**/*.test.mjs"
+
+      - name: Run shared package tests
+        run: |
+          node --experimental-strip-types --test "packages/**/*.test.ts"
+
+      - name: Run build-bump tooling tests
+        run: npm run test:scripts
+
+      - name: Generate route-data diagnostics
+        id: route_data_diagnostics
+        if: always()
+        run: |
+          node --experimental-strip-types apps/road-crew/scripts/route-data-diagnostics.mjs --out=/tmp/route-data-diagnostics.md
+          cat /tmp/route-data-diagnostics.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment route-data diagnostics on PR
+        if: ${{ always() && github.event_name == 'pull_request' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          marker='<!-- rc-route-data-diagnostics -->'
+          body_file=/tmp/route-data-diagnostics.md
+
+          comment_id="$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" --paginate \
+            --jq ".[] | select(.body | contains(\"${marker}\")) | .id" | head -n 1)"
+
+          if [ "${{ steps.route_data_diagnostics.outputs.has_diagnostics }}" = "true" ]; then
+            if [ -n "${comment_id}" ]; then
+              comment_body="$(cat "${body_file}")"
+              gh api "repos/${REPO}/issues/comments/${comment_id}" \
+                --method PATCH \
+                --field body="${comment_body}" >/dev/null
+            else
+              gh pr comment "${PR_NUMBER}" --repo "${REPO}" --body-file "${body_file}"
+            fi
+          elif [ -n "${comment_id}" ]; then
+            resolved_file=/tmp/route-data-diagnostics-resolved.md
+            printf '%s\n' \
+              '<!-- rc-route-data-diagnostics -->' \
+              '## Route Data Diagnostics' \
+              '' \
+              'No route-data diagnostics were reported.' \
+              > "${resolved_file}"
+            comment_body="$(cat "${resolved_file}")"
+            gh api "repos/${REPO}/issues/comments/${comment_id}" \
+              --method PATCH \
+              --field body="${comment_body}" >/dev/null
+          fi
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install workspace
+        run: npm ci
+
+      - name: Type-check shared packages
+        run: |
+          for p in contracts config core data ui; do
+            echo "== packages/$p =="
+            node_modules/.bin/tsc -p "packages/$p/tsconfig.json"
+          done
+
+      - name: Type-check the universal app
+        run: npm run lint --prefix apps/road-crew
+
+      - name: Smoke-build the universal web export
+        run: npm run export:web --prefix apps/road-crew
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [changes, test, typecheck]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.app == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright system dependencies
+        run: npx playwright install-deps chromium
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
+
+      - name: Run end-to-end tests
+        run: npm run test:e2e
+
+      - name: Summarize failures
+        if: ${{ failure() }}
+        run: |
+          cat > /tmp/summarize-pw.mjs <<'NODE_EOF'
+          import fs from 'node:fs';
+          const path = 'playwright-report/results.json';
+          if (!fs.existsSync(path)) {
+            console.log('No JSON report found at ' + path);
+            process.exit(0);
+          }
+          const r = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const fails = [];
+          const walk = (suite) => {
+            for (const s of (suite.suites || [])) walk(s);
+            for (const spec of (suite.specs || [])) {
+              for (const t of (spec.tests || [])) {
+                for (const res of (t.results || [])) {
+                  if (res.status === 'failed' || res.status === 'timedOut') {
+                    const error = (res.errors || []).map(e => e.message || e.stack || '').join('\n\n');
+                    fails.push({ title: spec.title, file: spec.file, error, retry: res.retry });
+                  }
+                }
+              }
+            }
+          };
+          for (const s of (r.suites || [])) walk(s);
+          const fence = String.fromCharCode(96).repeat(3);
+          const out = ['## Playwright e2e failures', ''];
+          if (!fails.length) {
+            out.push('_No individual test failures parsed (job may have failed at install or launch)._');
+          } else {
+            for (const f of fails) {
+              out.push('### ' + f.file + ' — ' + f.title + (f.retry ? ' (retry ' + f.retry + ')' : ''));
+              out.push('');
+              out.push(fence);
+              out.push((f.error || '').slice(0, 4000));
+              out.push(fence);
+              out.push('');
+            }
+          }
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, out.join('\n'));
+          NODE_EOF
+          node /tmp/summarize-pw.mjs
+
+      - name: Upload Playwright report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14

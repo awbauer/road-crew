@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "road-crew-web",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["apps/road-crew/scripts/serve-dist.mjs", "8790"],
+      "port": 8790
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "name": "road-crew",
+  "version": "1.0.0",
+  "description": "Road Crew — universal Expo field app, shared packages, and E2E harness.",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "pretest:e2e": "npm run build:web",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install --with-deps chromium",
+    "serve:app": "node apps/road-crew/scripts/serve-dist.mjs 4173",
+    "check:build-bump": "node scripts/check-build-bump.mjs",
+    "test:scripts": "node --test \"scripts/tests/**/*.test.mjs\"",
+    "test:packages": "node --test \"packages/**/*.test.ts\"",
+    "test:app": "npm test --prefix apps/road-crew",
+    "lint": "npm run lint --prefix apps/road-crew",
+    "build:web": "npm run export:web --prefix apps/road-crew"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.0",
+    "typescript": "^5.8.3"
+  },
+  "optionalDependencies": {
+    "lightningcss-linux-x64-gnu": "^1.27.0"
+  }
+}

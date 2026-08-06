@@ -1,0 +1,72 @@
+name: Tag App Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/config/src/version.ts'
+      - 'packages/config/VERSION_HISTORY.md'
+  workflow_dispatch:
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Read app version
+        id: version
+        run: |
+          APP_METADATA_JSON="$(node --experimental-strip-types --input-type=module -e "const { APP_VERSION } = await import('./packages/config/src/version.ts'); process.stdout.write(JSON.stringify(APP_VERSION))")"
+          APP_BUILD="$(node --input-type=module -e "const metadata = JSON.parse(process.argv[1]); process.stdout.write(metadata.build);" "${APP_METADATA_JSON}")"
+          RELEASE_VERSION="$(node --input-type=module -e "const metadata = JSON.parse(process.argv[1]); process.stdout.write(metadata.release);" "${APP_METADATA_JSON}")"
+          if [ -z "${APP_BUILD}" ] || [ -z "${RELEASE_VERSION}" ]; then
+            echo "Unable to read app version from packages/config/src/version.ts" >&2
+            exit 1
+          fi
+          RELEASE_NOTES="$(awk -v heading="### v${RELEASE_VERSION} (build ${APP_BUILD})" '
+            $0 == heading { found = 1; next }
+            found && /^### / { exit }
+            found && /^- / { print }
+          ' packages/config/VERSION_HISTORY.md)"
+          if [ -z "${RELEASE_NOTES}" ]; then
+            echo "Unable to find ${RELEASE_VERSION} build ${APP_BUILD} in packages/config/VERSION_HISTORY.md" >&2
+            exit 1
+          fi
+          echo "app_build=${APP_BUILD}" >> "$GITHUB_OUTPUT"
+          echo "release_version=${RELEASE_VERSION}" >> "$GITHUB_OUTPUT"
+          # The build is part of the tag, not just the message. The release
+          # version is deliberately held across many builds, so a release-only
+          # tag silently skipped every promotion after the first one that used
+          # it — the "already exists; nothing to do" path below.
+          echo "tag_name=app-v${RELEASE_VERSION}-${APP_BUILD}" >> "$GITHUB_OUTPUT"
+          {
+            echo 'release_notes<<EOF'
+            printf '%s\n' "${RELEASE_NOTES}"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create tag if missing
+        env:
+          TAG_NAME: ${{ steps.version.outputs.tag_name }}
+          APP_BUILD: ${{ steps.version.outputs.app_build }}
+          RELEASE_VERSION: ${{ steps.version.outputs.release_version }}
+          RELEASE_NOTES: ${{ steps.version.outputs.release_notes }}
+        run: |
+          if git rev-parse "${TAG_NAME}" >/dev/null 2>&1; then
+            echo "Tag ${TAG_NAME} already exists; nothing to do."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${TAG_NAME}" -m "App release ${RELEASE_VERSION} (build ${APP_BUILD})" -m "${RELEASE_NOTES}"
+          git push origin "${TAG_NAME}"

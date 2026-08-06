@@ -1,0 +1,57 @@
+# Expo / React Native dependencies and caches
+node_modules/
+.expo/
+dist/
+web-build/
+coverage/
+*.tsbuildinfo
+.xcode-cloud/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Generated web-export content
+public/data/
+public/js/
+
+# Android native output is not currently tracked
+android/
+
+# iOS is intentionally tracked for Xcode Cloud.
+# Keep the project, workspace, source, Podfile, Podfile.lock,
+# shared scheme, and ci_scripts; exclude generated/local output.
+ios/Pods/
+ios/build/
+ios/DerivedData/
+ios/**/xcuserdata/
+ios/**/*.xcuserstate
+ios/**/*.xccheckout
+ios/**/*.moved-aside
+ios/**/*.pbxuser
+ios/.xcode.env.local
+ios/*.jsbundle
+ios/*.ipa
+ios/*.xcarchive
+ios/certs/
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env*.example
+
+# Local credentials and signing material
+credentials.json
+.netrc
+*.p8
+*.p12
+*.cer
+*.mobileprovision
+
+# Sentry local configuration
+sentry.properties
+.sentryclirc
+.env.sentry-build-plugin
+
+# macOS
+.DS_Store

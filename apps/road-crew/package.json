@@ -1,0 +1,71 @@
+{
+  "name": "road-crew-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Road Crew universal Expo field app for web, iOS, and Android.",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "copy:web-data": "node scripts/copy-web-data.mjs",
+    "gen:web-version": "node --experimental-strip-types ../../packages/config/scripts/generate-browser-version-js.mjs public/js/version.js",
+    "export:web": "node scripts/export-web.mjs",
+    "lint": "tsc --noEmit",
+    "test": "node --test \"__tests__/**/*.test.mjs\""
+  },
+  "expo": {
+    "doctor": {
+      "appConfigFieldsNotSyncedCheck": {
+        "enabled": false
+      }
+    }
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~57.0.6",
+    "@expo/vector-icons": "^15.0.2",
+    "@road-crew/config": "*",
+    "@road-crew/contracts": "*",
+    "@road-crew/core": "*",
+    "@road-crew/data": "*",
+    "@road-crew/ui": "*",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/netinfo": "12.0.1",
+    "@rnmapbox/maps": "^10.3.2",
+    "@sentry/browser": "^10.68.0",
+    "@sentry/react-native": "~7.11.0",
+    "expo": "~57.0.7",
+    "expo-asset": "~57.0.6",
+    "expo-background-task": "~57.0.6",
+    "expo-constants": "~57.0.6",
+    "expo-dev-client": "~57.0.7",
+    "expo-device": "~57.0.1",
+    "expo-keep-awake": "~57.0.1",
+    "expo-linking": "~57.0.3",
+    "expo-location": "~57.0.5",
+    "expo-notifications": "~57.0.6",
+    "expo-router": "~57.0.7",
+    "expo-secure-store": "~57.0.1",
+    "expo-sqlite": "~57.0.1",
+    "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.1",
+    "expo-task-manager": "~57.0.4",
+    "expo-updates": "~57.0.8",
+    "mapbox-gl": "3.12.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.0",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "4.25.2",
+    "react-native-sse": "1.2.1",
+    "react-native-web": "^0.21.2",
+    "react-native-webview": "13.16.1",
+    "tsx": "^4.23.1"
+  },
+  "devDependencies": {
+    "@types/mapbox-gl": "^3.4.1",
+    "@types/react": "~19.2.4",
+    "typescript": "~6.0.3"
+  }
+}

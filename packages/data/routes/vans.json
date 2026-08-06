@@ -1,0 +1,124 @@
+{
+  "vans": [
+    {
+      "number": "VAN-1",
+      "label": "VAN-1"
+    },
+    {
+      "number": "VAN-2",
+      "label": "VAN-2"
+    },
+    {
+      "number": "VAN-3",
+      "label": "VAN-3"
+    },
+    {
+      "number": "VAN-4",
+      "label": "VAN-4"
+    },
+    {
+      "number": "VAN-5",
+      "label": "VAN-5"
+    },
+    {
+      "number": "VAN-6",
+      "label": "VAN-6"
+    },
+    {
+      "number": "VAN-7",
+      "label": "VAN-7"
+    },
+    {
+      "number": "VAN-8",
+      "label": "VAN-8"
+    },
+    {
+      "number": "VAN-9",
+      "label": "VAN-9"
+    },
+    {
+      "number": "VAN-10",
+      "label": "VAN-10"
+    },
+    {
+      "number": "VAN-11",
+      "label": "VAN-11"
+    },
+    {
+      "number": "VAN-12",
+      "label": "VAN-12"
+    },
+    {
+      "number": "VAN-13",
+      "label": "VAN-13"
+    },
+    {
+      "number": "VAN-14",
+      "label": "VAN-14"
+    },
+    {
+      "number": "VAN-15",
+      "label": "VAN-15"
+    },
+    {
+      "number": "VAN-16",
+      "label": "VAN-16"
+    },
+    {
+      "number": "VAN-17",
+      "label": "VAN-17"
+    },
+    {
+      "number": "VAN-18",
+      "label": "VAN-18"
+    },
+    {
+      "number": "VAN-19",
+      "label": "VAN-19"
+    },
+    {
+      "number": "VAN-20",
+      "label": "VAN-20"
+    },
+    {
+      "number": "VAN-21",
+      "label": "VAN-21"
+    },
+    {
+      "number": "VAN-22",
+      "label": "VAN-22"
+    },
+    {
+      "number": "VAN-23",
+      "label": "VAN-23"
+    },
+    {
+      "number": "VAN-24",
+      "label": "VAN-24"
+    },
+    {
+      "number": "VAN-25",
+      "label": "VAN-25"
+    },
+    {
+      "number": "VAN-26",
+      "label": "VAN-26"
+    },
+    {
+      "number": "VAN-27",
+      "label": "VAN-27"
+    },
+    {
+      "number": "VAN-28",
+      "label": "VAN-28"
+    },
+    {
+      "number": "VAN-29",
+      "label": "VAN-29"
+    },
+    {
+      "number": "VAN-30",
+      "label": "VAN-30"
+    }
+  ]
+}
