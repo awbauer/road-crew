@@ -1,0 +1,85 @@
+{
+  "expo": {
+    "name": "Road Crew",
+    "slug": "road-crew",
+    "updates": {
+      "url": "https://u.expo.dev/13e69f47-22b2-4b3a-95fe-06cf074854f1",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
+    "orientation": "portrait",
+    "scheme": "roadcrew",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0b0b0d",
+    "icon": "./assets/AppIcon-1024.png",
+    "splash": {
+      "backgroundColor": "#0b0b0d"
+    },
+    "ios": {
+      "icon": "./assets/AppIcon-1024.png",
+      "supportsTablet": true,
+      "bundleIdentifier": "dev.awbauer.roadcrew",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "remote-notification",
+          "location",
+          "processing"
+        ],
+        "ITSAppUsesNonExemptEncryption": false,
+        "UILaunchStoryboardName": "SplashScreen"
+      }
+    },
+    "android": {
+      "package": "dev.awbauer.roadcrew"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "@rnmapbox/maps",
+      "expo-asset",
+      "./plugins/with-ios-app-icon",
+      [
+        "expo-router",
+        {
+          "sitemap": false
+        }
+      ],
+      "expo-secure-store",
+      "expo-sqlite",
+      "expo-status-bar",
+      "expo-system-ui",
+      "expo-background-task",
+      "@sentry/react-native/expo",
+      "./plugins/with-ios-ci-build-environment",
+      [
+        "expo-notifications",
+        {
+          "color": "#d7261e",
+          "enableBackgroundRemoteNotifications": true
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Road Crew uses your location to show your position while you're on shift.",
+          "locationAlwaysAndWhenInUsePermission": "Road Crew shares your tracked van's location while you're on shift, including when the app is in the background.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ]
+    ],
+    "extra": {
+      "apiBaseUrl": "https://rc.awbauer.dev",
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "13e69f47-22b2-4b3a-95fe-06cf074854f1"
+      }
+    },
+    "owner": "awbauer"
+  }
+}

@@ -1,0 +1,108 @@
+name: EAS Update
+
+# Publishes an over-the-air JS/asset update for apps/road-crew to an EAS branch.
+# OTA is driven by the dev branches: a push to `beta` publishes to the EAS branch
+# `beta` (which the `preview` channel points at), and a push to `main` publishes
+# to the EAS branch `main` (which the `production` channel points at).
+# Native builds are separate and handled by Xcode Cloud (which builds on pushes
+# to the `beta-testflight`/`production` branches); Expo/EAS is used only for OTA.
+# No-ops cleanly if EXPO_TOKEN isn't configured.
+on:
+  push:
+    branches: [beta, main]
+    paths:
+      - 'apps/road-crew/**'
+      - 'packages/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/eas-update.yml'
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'EAS branch to publish to'
+        required: true
+        default: 'beta'
+        type: choice
+        options: [beta, main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check EXPO_TOKEN is configured
+        id: check_token
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "::warning::EXPO_TOKEN secret is not set — skipping EAS update. Add an Expo access token as the EXPO_TOKEN repo secret to enable this workflow."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.check_token.outputs.skip == 'false'
+
+      - uses: actions/setup-node@v4
+        if: steps.check_token.outputs.skip == 'false'
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install workspace dependencies
+        if: steps.check_token.outputs.skip == 'false'
+        run: npm ci --no-audit --no-fund
+
+      - uses: expo/expo-github-action@v8
+        if: steps.check_token.outputs.skip == 'false'
+        with:
+          eas-version: 21.5.0
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Select EAS branch
+        if: steps.check_token.outputs.skip == 'false'
+        id: target
+        env:
+          MANUAL_BRANCH: ${{ inputs.branch }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          # Map the git dev branch to the EAS branch it publishes to. The
+          # `preview` channel points at EAS branch `beta`; the `production`
+          # channel points at EAS branch `main` (see README).
+          if [ "$EVENT_NAME" = "push" ]; then
+            case "$BRANCH_NAME" in
+              beta) eas_branch="beta" ;;
+              main) eas_branch="main" ;;
+              *) echo "No EAS branch mapping for git branch: $BRANCH_NAME" >&2; exit 1 ;;
+            esac
+          else
+            eas_branch="$MANUAL_BRANCH"
+          fi
+          case "$eas_branch" in
+            beta|main) ;;
+            *) echo "Unsupported EAS branch: $eas_branch" >&2; exit 1 ;;
+          esac
+          echo "name=$eas_branch" >> "$GITHUB_OUTPUT"
+
+      - name: Publish EAS update
+        if: steps.check_token.outputs.skip == 'false'
+        working-directory: apps/road-crew
+        env:
+          UPDATE_MESSAGE: ${{ github.event.head_commit.message || format('Manual update to {0}', steps.target.outputs.name) }}
+          EAS_SKIP_AUTO_FINGERPRINT: "1"
+          # Pass Sentry project metadata to the Expo config plugin. These are
+          # repository Actions variables, not secrets.
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+        run: |
+          eas update \
+            --branch "${{ steps.target.outputs.name }}" \
+            --message "$UPDATE_MESSAGE" \
+            --platform ios \
+            --non-interactive

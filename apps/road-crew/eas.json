@@ -1,0 +1,25 @@
+{
+  "cli": {
+    "version": ">= 3.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "credentialsSource": "local"
+    },
+    "beta-testflight": {
+      "distribution": "internal",
+      "channel": "preview",
+      "credentialsSource": "local"
+    },
+    "production": {
+      "channel": "production",
+      "credentialsSource": "local"
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
