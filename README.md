@@ -63,6 +63,16 @@ whole route in your pocket:
   <img src="docs/screenshots/choose-route.png" width="250" alt="Choose a route dialog listing five routes with day, sequence count and mileage">
   &nbsp;
   <img src="docs/screenshots/sequences.png" width="250" alt="Sequences list for a route, each card showing a direction arrow, number, street, town, rider times and flags">
+  &nbsp;
+  <img src="docs/screenshots/map.png" width="250" alt="Map with the route line, numbered sequence markers and an open popup for sequence 20 showing direction, mileage, rider times and a navigation button">
+</p>
+
+On a tablet or a wide browser window, the **Route** workspace puts the
+sequence list and the map side by side, with your position, the previous
+sequence and the next one across the top.
+
+<p align="center">
+  <img src="docs/screenshots/route-tablet.png" width="760" alt="Tablet Route workspace: sequence list on the left, map with an open sequence popup on the right, and a header showing the current road between the previous and next sequence">
 </p>
 
 ## Web app vs. native app
@@ -96,7 +106,9 @@ Press `w` in the Expo prompt to open the web app, or `i` / `a` for a simulator.
 `EXPO_PUBLIC_MAPBOX_TOKEN` in `apps/road-crew/.env.local`. It ends up in the
 client bundle, so anyone with the app can read it; never use a secret token.
 No token is committed here. Without one, everything except the map screens
-works.
+works. If you add the token after an earlier build, clear Metro's cache once
+(`npx expo export --platform web --clear` from `apps/road-crew/`) so the new
+value is picked up.
 
 To build and serve the web version the way it's deployed:
 
