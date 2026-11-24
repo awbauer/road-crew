@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { router, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
 /**
  * One-shot sequence-to-map request shared by the phone Map screen and the
@@ -10,12 +10,13 @@ export function useSequenceJumpRequest(): {
   sequenceNumber: number | null;
   consume: () => void;
 } {
+  const router = useRouter();
   const params = useLocalSearchParams<{ sequence?: string }>();
   const parsed = Number.parseInt(String(params.sequence ?? ""), 10);
   const sequenceNumber = Number.isInteger(parsed) && parsed > 0 ? parsed : null;
   const consume = useCallback(() => {
     router.setParams({ sequence: undefined });
-  }, []);
+  }, [router]);
 
   return { sequenceNumber, consume };
 }

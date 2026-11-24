@@ -7,16 +7,17 @@
  * --test`. It previously lived inline in `backgroundNotification.native.ts`
  * and read one level too shallow, which silently discarded every wake.
  *
- * expo-notifications' iOS `BackgroundEventTransformer` nests every key except
- * `aps` under `data`:
+ * expo-notifications' iOS foreground/tap serializer exposes the APNs top-level
+ * `body` object as `NotificationContent.data`. Its `BackgroundEventTransformer`
+ * nests every key except `aps` under `data`:
  *
- *   { data: { type, syncRequestId, dataString }, notification: null, aps: {...} }
+ *   { data: { type, syncRequestId }, notification: null, aps: {...} }
  *
  * so the Worker's top-level `type`/`syncRequestId` arrive at `payload.data.*`,
- * not `payload.*`. Android delivers the same fields as a JSON string in
- * `data.dataString`. Both are handled, plus a flat payload, so a future change
- * to the wrapper degrades to one of the other shapes instead of silently
- * dropping the wake again.
+ * not `payload.*`, and serializes the top-level `body` object into
+ * `data.dataString`. All iOS forms are handled, plus flat and nested `body`
+ * objects, so a future wrapper change degrades to another recognized shape
+ * instead of silently dropping the wake again.
  */
 
 /** @typedef {{ type: "sync-request", syncRequestId: string }} SyncRequestPayload */
@@ -33,8 +34,8 @@ function candidateRecords(payload) {
     ? /** @type {Record<string, unknown>} */ (outer.data)
     : null;
   const records = [];
-  // Nested first: that is where both platforms put it today. The outer object
-  // is kept as a fallback so a flat payload still resolves.
+  // Nested first: that is where iOS puts it today. The outer object is kept as
+  // a fallback so a flat payload still resolves.
   for (const record of [inner, outer]) {
     if (!record) continue;
     if (typeof record.dataString === "string") {
@@ -45,9 +46,33 @@ function candidateRecords(payload) {
         // A malformed dataString must not hide the record carrying it.
       }
     }
+    if (record.body && typeof record.body === "object") {
+      records.push(/** @type {Record<string, unknown>} */ (record.body));
+    }
     records.push(record);
   }
   return records;
+}
+
+/**
+ * The records a background task payload could be carrying, nearest-first.
+ *
+ * Exported so other push types are read through the same unwrapping as the sync
+ * request: reading `payload.data` directly is exactly the mistake that silently
+ * discarded every wake before this module existed, and a second reader doing it
+ * by hand would reintroduce it.
+ *
+ * @contract expo-notifications-remote-data/sdk-57
+ *   node_modules/expo-notifications/ios/ExpoNotifications/Notifications/NotificationRecords.swift#serializedNotificationData
+ *   role=native-payload-adapter via=candidateRecords
+ *
+ * The iOS forms are defined by `BackgroundEventTransformer.swift#transform`
+ * and `NotificationRecords.swift#serializedNotificationData`.
+ * @param {unknown} payload
+ * @returns {Record<string, unknown>[]}
+ */
+export function notificationDataRecords(payload) {
+  return candidateRecords(payload);
 }
 
 /**

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Platform, StyleSheet, Text, View } from "react-native";
+import { AccessibilityInfo, Animated, Platform, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FontAwesome6 } from "@expo/vector-icons";
 import { colors } from "@road-crew/ui";
@@ -35,6 +35,9 @@ export function RouteChangedToast() {
 
   useEffect(() => {
     if (!message) return undefined;
+    // VoiceOver ignores `accessibilityLiveRegion` (Android only) and cannot
+    // reach a pointer-events-none toast, so the change is announced outright.
+    AccessibilityInfo.announceForAccessibility(message);
     const animation = Animated.sequence([
       Animated.timing(opacity, { toValue: 1, duration: 160, useNativeDriver: true }),
       Animated.delay(2_600),

@@ -1,3 +1,4 @@
+// @ts-check
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -11,6 +12,22 @@ import {
   formatFleetLastSeen,
   selectFleet,
 } from "../src/field/fleet.js";
+
+/** @typedef {import("@road-crew/contracts").VanLocation} VanLocation */
+/** @typedef {import("../src/field/fleet.js").FleetMarker} FleetMarker */
+
+/**
+ * A reported van location; fields a test does not care about are unknown.
+ * @param {Partial<VanLocation> & Pick<VanLocation, "vanId" | "lat" | "lng" | "ts">} fields
+ * @returns {VanLocation}
+ */
+const loc = (fields) => ({ deviceId: null, accuracy: null, heading: null, ...fields });
+
+/**
+ * @param {Partial<FleetMarker> & Pick<FleetMarker, "vanId" | "lat" | "lng">} fields
+ * @returns {FleetMarker}
+ */
+const fleetMarker = (fields) => ({ ts: 10, ageMs: 0, bucket: "fresh", heading: null, routeId: null, ...fields });
 
 test("fleet colors use one contrasting orange family across markers and clusters", () => {
   assert.deepEqual(FLEET_BUCKET_COLOR, {
@@ -44,8 +61,8 @@ test("formatFleetLastSeen renders useful fix ages", () => {
 test("selectFleet excludes the viewer's own van by id", () => {
   const now = 1_000_000;
   const list = [
-    { vanId: "VAN-1", lat: 41, lng: -70, ts: now, deviceId: "d_1" },
-    { vanId: "VAN-2", lat: 42, lng: -71, ts: now, deviceId: "d_2" },
+    loc({ vanId: "VAN-1", lat: 41, lng: -70, ts: now, deviceId: "d_1" }),
+    loc({ vanId: "VAN-2", lat: 42, lng: -71, ts: now, deviceId: "d_2" }),
   ];
   const out = selectFleet(list, { selfVanId: "VAN-1", now });
   assert.deepEqual(out.map((v) => v.vanId), ["VAN-2"]);
@@ -54,7 +71,7 @@ test("selectFleet excludes the viewer's own van by id", () => {
 test("selectFleet excludes the viewer's own reporting device", () => {
   const now = 1_000_000;
   const list = [
-    { vanId: "VAN-5", lat: 41, lng: -70, ts: now, deviceId: "d_self" },
+    loc({ vanId: "VAN-5", lat: 41, lng: -70, ts: now, deviceId: "d_self" }),
   ];
   assert.equal(selectFleet(list, { selfDeviceId: "d_self", now }).length, 0);
 });
@@ -62,9 +79,9 @@ test("selectFleet excludes the viewer's own reporting device", () => {
 test("selectFleet drops entries with bad coordinates and annotates age", () => {
   const now = 2_000_000;
   const list = [
-    { vanId: "VAN-3", lat: 999, lng: -70, ts: now }, // bad lat
-    { vanId: "VAN-4", lat: 41, lng: -70, heading: null, ts: now - FLEET_FRESH_MS }, // stale boundary
-    { vanId: "", lat: 41, lng: -70, ts: now }, // no van id
+    loc({ vanId: "VAN-3", lat: 999, lng: -70, ts: now }), // bad lat
+    loc({ vanId: "VAN-4", lat: 41, lng: -70, heading: null, ts: now - FLEET_FRESH_MS }), // stale boundary
+    loc({ vanId: "", lat: 41, lng: -70, ts: now }), // no van id
   ];
   const out = selectFleet(list, { now });
   assert.equal(out.length, 1);
@@ -81,20 +98,20 @@ test("selectFleet tolerates non-array input", () => {
 });
 
 test("selectFleet preserves route and heading context", () => {
-  const [marker] = selectFleet([{
+  const [selected] = selectFleet([loc({
     vanId: "VAN-8",
     routeId: "route-b",
     lat: 42,
     lng: -71,
     heading: 270,
     ts: 10,
-  }], { now: 10 });
-  assert.equal(marker.routeId, "route-b");
-  assert.equal(marker.heading, 270);
+  })], { now: 10 });
+  assert.equal(selected.routeId, "route-b");
+  assert.equal(selected.heading, 270);
 });
 
 test("describeFleetMarker uses the van's selected route without sequence details", () => {
-  const marker = {
+  const marker = fleetMarker({
     vanId: "VAN-8",
     routeId: "route-b",
     lat: 42,
@@ -103,7 +120,7 @@ test("describeFleetMarker uses the van's selected route without sequence details
     ts: 10,
     ageMs: 0,
     bucket: "fresh",
-  };
+  });
   const routes = [{
     id: "route-a",
     name: "Route A",
@@ -126,13 +143,14 @@ test("describeFleetMarker uses the van's selected route without sequence details
     ],
   }];
   const details = describeFleetMarker(marker, routes);
+  assert.ok(details);
   assert.equal(details.routeId, "route-b");
   assert.equal(details.routeName, "Route B");
   assert.deepEqual(Object.keys(details).sort(), ["routeId", "routeName"]);
 });
 
 test("describeFleetMarker falls back to the nearest route", () => {
-  const marker = {
+  const marker = fleetMarker({
     vanId: "VAN-9",
     routeId: null,
     lat: 42,
@@ -141,7 +159,7 @@ test("describeFleetMarker falls back to the nearest route", () => {
     ts: 10,
     ageMs: 0,
     bucket: "fresh",
-  };
+  });
   const routes = [{
     id: "far",
     name: "Far Route",
@@ -151,5 +169,5 @@ test("describeFleetMarker falls back to the nearest route", () => {
     name: "Near Route",
     sequences: [{ seq: 20, lat: 42, lng: -71.002 }, { seq: 21, lat: 42, lng: -71 }],
   }];
-  assert.equal(describeFleetMarker(marker, routes).routeId, "near");
+  assert.equal(describeFleetMarker(marker, routes)?.routeId, "near");
 });

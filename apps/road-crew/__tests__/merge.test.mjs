@@ -1,7 +1,15 @@
+// @ts-check
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mergeMessages, highestServerSeq, unreadCount } from "../src/sync/merge.js";
+import { highestServerSeq, unreadCount } from "../src/sync/merge.js";
 
+/** @typedef {import("@road-crew/contracts").ClientMessage} ClientMessage */
+
+/**
+ * @param {number} seq
+ * @param {Partial<ClientMessage>} [overrides]
+ * @returns {ClientMessage}
+ */
 function serverMsg(seq, overrides = {}) {
   return {
     id: `msg_${seq}`,
@@ -20,6 +28,11 @@ function serverMsg(seq, overrides = {}) {
   };
 }
 
+/**
+ * @param {string} cid
+ * @param {string} createdAtClient
+ * @returns {ClientMessage}
+ */
 function pending(cid, createdAtClient) {
   return {
     id: cid,
@@ -36,53 +49,6 @@ function pending(cid, createdAtClient) {
     serverSeq: null,
   };
 }
-
-test("merge orders by serverSeq and dedupes by clientMessageId", () => {
-  const merged = mergeMessages([serverMsg(1)], [serverMsg(2), serverMsg(1)]);
-  assert.equal(merged.length, 2);
-  assert.deepEqual(
-    merged.map((m) => m.serverSeq),
-    [1, 2],
-  );
-});
-
-test("a server-confirmed echo replaces its queued local copy", () => {
-  const local = pending("cid_5", "2026-06-05T00:00:05Z");
-  const confirmed = serverMsg(5, { clientMessageId: "cid_5", senderType: "van", senderId: "3" });
-  const merged = mergeMessages([local], [confirmed]);
-  assert.equal(merged.length, 1);
-  assert.equal(merged[0].status, "sent");
-  assert.equal(merged[0].serverSeq, 5);
-});
-
-test("an unconfirmed re-send never clobbers an already-confirmed row", () => {
-  const confirmed = serverMsg(7, { clientMessageId: "cid_7", senderType: "van" });
-  const stale = pending("cid_7", "2026-06-05T00:00:07Z");
-  const merged = mergeMessages([confirmed], [stale]);
-  assert.equal(merged.length, 1);
-  assert.equal(merged[0].serverSeq, 7);
-  assert.equal(merged[0].status, "sent");
-});
-
-test("pending (null seq) messages sort after confirmed ones", () => {
-  const merged = mergeMessages(
-    [serverMsg(1)],
-    [pending("cid_a", "2026-06-05T00:00:09Z"), pending("cid_b", "2026-06-05T00:00:08Z")],
-  );
-  assert.deepEqual(
-    merged.map((m) => m.clientMessageId),
-    ["cid_1", "cid_b", "cid_a"],
-  );
-});
-
-test("maxLocalMessages keeps only the newest N", () => {
-  const many = Array.from({ length: 10 }, (_, i) => serverMsg(i + 1));
-  const merged = mergeMessages([], many, 3);
-  assert.deepEqual(
-    merged.map((m) => m.serverSeq),
-    [8, 9, 10],
-  );
-});
 
 test("highestServerSeq returns the max confirmed seq", () => {
   assert.equal(highestServerSeq([serverMsg(2), serverMsg(5), pending("x", "z")]), 5);

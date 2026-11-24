@@ -1,3 +1,4 @@
+// @ts-check
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { outboxFailureStatus } from "../src/sync/outboxPolicy.ts";

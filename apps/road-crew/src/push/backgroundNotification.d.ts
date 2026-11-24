@@ -7,3 +7,4 @@ export interface BackgroundNotificationEvent {
 }
 
 export declare function readBackgroundNotificationEvents(): Promise<BackgroundNotificationEvent[]>;
+export declare function handleForegroundSyncNotification(data: unknown): Promise<boolean>;

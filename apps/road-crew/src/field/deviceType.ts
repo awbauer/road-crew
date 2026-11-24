@@ -28,7 +28,7 @@ export function currentDeviceType(): DeviceFormFactor {
   }
 }
 
-/** True when this device is a tablet (iPad or an Android tablet). */
+/** True when this device is an iPad-sized tablet. */
 export function isTabletDevice(): boolean {
   return currentDeviceType() === "tablet";
 }

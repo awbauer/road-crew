@@ -23,12 +23,31 @@ export interface NearestSequenceResult {
 
 // Returns { index, seq, distance } for the closest sequence in `sequences`
 // (an array of { seq, lat, lng, ... }). Sequences without coords are skipped.
+/**
+ * Below this speed (m/s, about 2 mph) a course is noise: a parked or
+ * crawling van's heading wanders, and iOS reports -1 for "unknown".
+ */
+export const MIN_DIRECTION_SPEED_MPS = 1;
+
+/**
+ * The heading to steer by, or null. A heading counts only when it is a real
+ * course (finite, 0–360) and the van is moving: with a known speed under
+ * `MIN_DIRECTION_SPEED_MPS` it is ignored. An unknown speed keeps a valid
+ * heading, since some platforms report a course without one.
+ */
+export function directionHeading(heading: number | null | undefined, speed: number | null | undefined = null): number | null {
+  if (heading == null || !Number.isFinite(heading) || heading < 0 || heading > 360) return null;
+  if (speed != null && Number.isFinite(speed) && speed < MIN_DIRECTION_SPEED_MPS) return null;
+  return heading;
+}
+
 export function nearestSequence(
   sequences: Sequence[],
   lat: number,
   lng: number,
-  { heading = null }: { heading?: number | null } = {},
+  { heading: rawHeading = null, speed = null }: { heading?: number | null; speed?: number | null } = {},
 ): NearestSequenceResult | null {
+  const heading = directionHeading(rawHeading, speed);
   if (!Array.isArray(sequences) || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   let best: NearestSequenceResult | null = null;
   for (let i = 0; i < sequences.length; i++) {
@@ -71,12 +90,15 @@ export function nearestSequences(
   sequences: Sequence[],
   lat: number,
   lng: number,
-  { heading = null, traversalDir = null }: {
+  { heading: rawHeading = null, speed = null, traversalDir = null }: {
     heading?: number | null;
+    /** Metres per second; a known speed below the threshold ignores heading. */
+    speed?: number | null;
     traversalDir?: "forward" | "reverse" | null;
   } = {},
 ): NearestSequencesResult | null {
   if (!Array.isArray(sequences) || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const heading = directionHeading(rawHeading, speed);
 
   const valid = sequences
     .map((seq, index) => ({ seq, index }))
@@ -185,6 +207,52 @@ function hasSequenceCoords(seq: Sequence): boolean {
   return Number.isFinite(seq?.lat) && Number.isFinite(seq?.lng);
 }
 
+/**
+ * The van's current position expressed as a route mile marker (interpolated
+ * `cum_miles`), derived the same way `nearestSequences` finds its bracketing
+ * pair: by projecting the fix onto the nearest segment between two
+ * consecutive sequence points, not by picking whichever sequence point is
+ * closest as the crow flies. Sequences without a coordinate or a `cum_miles`
+ * value are skipped, so a segment can span past missing data.
+ *
+ * Segments are built from `cum_miles` order, not the array's display order.
+ * A route's detour sequences are spliced into the display list right after
+ * their anchor point (so the printed cue sheet reads inline), but their
+ * `cum_miles` keeps counting up from the pipeline's original traversal —
+ * main route, then detour appended at the end — so in display order they sit
+ * between two points many miles away in `cum_miles`. Projecting against that
+ * display-order pair would let a fix on the real road between the anchor and
+ * its true next point snap onto the detour instead, resolving to a position
+ * dozens of miles off. Sorting by `cum_miles` first undoes exactly that
+ * splice and restores true mile-adjacency for every pair.
+ *
+ * Returns `null` when there are fewer than two usable points to project onto.
+ */
+export function nearestRouteMileMarker(
+  sequences: Sequence[],
+  lat: number,
+  lng: number,
+): number | null {
+  if (!Array.isArray(sequences) || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  const valid = sequences
+    .filter((seq) => hasSequenceCoords(seq) && Number.isFinite(seq.cum_miles))
+    .sort((a, b) => (a.cum_miles as number) - (b.cum_miles as number));
+  if (valid.length < 2) return null;
+
+  const points: IndexedPoint[] = valid.map((seq, index) => ({
+    seq,
+    index,
+    distance: haversine(lat, lng, seq.lat as number, seq.lng as number),
+  }));
+  const segment = nearestSegment(points, lat, lng);
+  if (!segment) return null;
+
+  const startMiles = points[segment.startPos].seq.cum_miles as number;
+  const endMiles = points[segment.endPos].seq.cum_miles as number;
+  return startMiles + segment.ratio * (endMiles - startMiles);
+}
+
 function headingScore(
   distance: number,
   lat1: number,
@@ -227,7 +295,7 @@ export function formatDistance(metres: number | null | undefined): string {
 // Format a mileage value as "1.23 mi", but only when it's a real finite
 // number. Bad data (string/NaN/null) returns null so callers render a dash
 // instead of throwing inside `.toFixed`, which would blank a whole list render.
-export function fmtMiles(value: number | null | undefined, digits = 2): string | null {
+export function fmtMiles(value: number | null | undefined, digits = 1): string | null {
   if (!Number.isFinite(value)) return null;
   return `${(value as number).toFixed(digits)} mi`;
 }
@@ -262,29 +330,4 @@ export function formatHeading(degrees: number | null | undefined): string {
   const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
   const idx = Math.round(((degrees % 360) + 360) % 360 / 45) % 8;
   return dirs[idx];
-}
-
-export function traversalDirection(
-  sequences: Sequence[],
-  currentIndex: number | null | undefined,
-  lat: number,
-  lng: number,
-  heading: number | null | undefined,
-): "forward" | "reverse" | null {
-  if (heading == null || !isFinite(heading)) return null;
-  if (!sequences || currentIndex == null || currentIndex < 0 || currentIndex >= sequences.length) return null;
-
-  const next = currentIndex < sequences.length - 1 ? sequences[currentIndex + 1] : null;
-  const prev = currentIndex > 0 ? sequences[currentIndex - 1] : null;
-
-  const hasNext = next && Number.isFinite(next.lat) && Number.isFinite(next.lng);
-  const hasPrev = prev && Number.isFinite(prev.lat) && Number.isFinite(prev.lng);
-
-  if (!hasNext && !hasPrev) return null;
-
-  const fwdDelta = hasNext ? angularDelta(heading, bearingTo(lat, lng, next!.lat as number, next!.lng as number)) : Infinity;
-  const revDelta = hasPrev ? angularDelta(heading, bearingTo(lat, lng, prev!.lat as number, prev!.lng as number)) : Infinity;
-
-  if (fwdDelta <= revDelta) return "forward";
-  return "reverse";
 }

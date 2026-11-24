@@ -2,7 +2,7 @@
 // Ported verbatim from app/js/pathDistance.js; behavior is intentionally unchanged.
 
 import type { RoutePath } from "@road-crew/contracts";
-import { haversine, bearingTo, angularDelta } from "./nearest.ts";
+import { haversine, bearingTo } from "./nearest.ts";
 
 const TO_RAD = Math.PI / 180;
 
@@ -66,18 +66,4 @@ export function pathBearingAt(path: RoutePath, segmentIndex: number): number | n
   const [lng1, lat1] = path[segmentIndex];
   const [lng2, lat2] = path[segmentIndex + 1];
   return bearingTo(lat1, lng1, lat2, lng2);
-}
-
-export function pathTraversalDirection(
-  path: RoutePath,
-  segmentIndex: number,
-  heading: number | null | undefined,
-): "forward" | "reverse" | null {
-  if (heading == null || !isFinite(heading)) return null;
-  const bearing = pathBearingAt(path, segmentIndex);
-  if (bearing == null) return null;
-  const delta = angularDelta(heading, bearing);
-  if (delta < 70) return "forward";
-  if (delta > 110) return "reverse";
-  return null;
 }

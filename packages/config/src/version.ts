@@ -4,8 +4,8 @@ export interface VersionInfo {
   release: string;
 }
 
-const CURRENT_BUILD = "17858692";
-const CURRENT_RELEASE = "2.2.0";
+const CURRENT_BUILD = "17954871";
+const CURRENT_RELEASE = "2.3.0";
 
 export const APP_VERSION: VersionInfo = {
   build: CURRENT_BUILD,

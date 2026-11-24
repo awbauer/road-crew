@@ -1,7 +1,7 @@
 import NetInfo from "@react-native-community/netinfo";
 import { addBreadcrumb } from "@/monitoring";
 
-/** Best-effort online check, mirroring the PWA's `navigator.onLine` gate. */
+/** Best-effort online check for mobile sync work. */
 export async function isOnline(): Promise<boolean> {
   try {
     const state = await NetInfo.fetch();

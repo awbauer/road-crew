@@ -5,6 +5,26 @@ Expo config derive only the current release and build from `src/version.ts`.
 
 ## Full history
 
+### v2.3.0 (build 17954871)
+
+- Ported shared fixes from the upstream field app, keeping the web field guide
+  and bundled route data intact.
+- Native offline maps now fit the whole route inside the 750-tile Mapbox limit
+  by lowering the deepest cached zoom on long routes, instead of caching full
+  detail for the first sequences and nothing for the rest. Resuming an
+  interrupted download no longer closes open callouts or re-shows a dismissed
+  status pill.
+- Settings changed before stored settings finish loading are kept and saved on
+  top of them instead of being lost or overwriting other settings.
+- Route-change toasts are announced to VoiceOver.
+- Push wake-ups recognize every payload shape iOS delivers.
+- The van picker shows an error when no roster can be read instead of offering
+  a made-up `VAN-1`…`VAN-30` list.
+- Core route math: GPS coordinates normalized to five decimal places, headings
+  ignored below walking speed, and mile formatting defaults to one decimal.
+- Rounded the bundled Cumberland Farms store coordinates to the same five
+  decimal places.
+
 ### v2.2.0 (build 17858692)
 
 - Attached valid foreground GPS fixes to native van-install heartbeats before a

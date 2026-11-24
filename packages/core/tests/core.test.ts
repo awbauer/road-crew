@@ -12,10 +12,8 @@ import {
   distanceToNextSequenceMiles,
   formatSpeed,
   formatHeading,
-  traversalDirection,
   nearestPointOnPath,
   pathBearingAt,
-  pathTraversalDirection,
   sequenceAddress,
   sequenceDestination,
   navigationHref,
@@ -170,25 +168,14 @@ test("formatDistance / formatSpeed / formatHeading", () => {
 });
 
 test("fmtMiles / distanceToNextSequenceMiles", () => {
-  assert.equal(fmtMiles(1.234), "1.23 mi");
+  assert.equal(fmtMiles(1.234), "1.2 mi");
+  assert.equal(fmtMiles(1.234, 2), "1.23 mi");
   assert.equal(fmtMiles("x" as unknown as number), null);
   const seqs = [seq({ seq: 1, miles: 0.5 }), seq({ seq: 2, cum_miles: 1 })];
   assert.equal(distanceToNextSequenceMiles(seqs, 0), 0.5);
   const seqs2 = [seq({ seq: 1, cum_miles: 1 }), seq({ seq: 2, cum_miles: 2.5 })];
   assert.equal(distanceToNextSequenceMiles(seqs2, 0), 1.5);
   assert.equal(distanceToNextSequenceMiles(seqs, 5), null);
-});
-
-test("traversalDirection", () => {
-  const seqs = [
-    seq({ seq: 1, lat: 42.0, lng: -71.0 }),
-    seq({ seq: 2, lat: 42.01, lng: -71.0 }),
-    seq({ seq: 3, lat: 42.02, lng: -71.0 }),
-  ];
-  // heading north → moving toward higher-lat next sequence = forward
-  assert.equal(traversalDirection(seqs, 1, 42.01, -71.0, 0), "forward");
-  assert.equal(traversalDirection(seqs, 1, 42.01, -71.0, 180), "reverse");
-  assert.equal(traversalDirection(seqs, 1, 42.01, -71.0, null), null);
 });
 
 test("pathDistance helpers", () => {
@@ -199,8 +186,6 @@ test("pathDistance helpers", () => {
   assert.ok(np!.distance < 120);
   assert.equal(nearestPointOnPath([[-71, 42]], 42, -71), null);
   assert.ok(Math.abs((pathBearingAt(path, 0) as number) - 0) < 0.5);
-  assert.equal(pathTraversalDirection(path, 0, 0), "forward");
-  assert.equal(pathTraversalDirection(path, 0, 180), "reverse");
 });
 
 test("sequence formatting + nav hrefs", () => {
