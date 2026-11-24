@@ -20,9 +20,7 @@ apps (React Native + Expo).
 
 ---
 
-## New here? Start with this
-
-### What problem does it solve?
+## What it does
 
 A multi-day ride covers hundreds of miles of back roads with thousands of
 riders. Road crews used to work from printed cue sheets. This app puts the
@@ -37,7 +35,7 @@ whole route in your pocket:
 - **What if there's no signal?** Route data ships inside the app, and the web
   version caches itself so it keeps working offline after the first visit.
 
-### Words you'll see
+## Key terms
 
 | Term | Meaning |
 | --- | --- |
@@ -48,7 +46,7 @@ whole route in your pocket:
 | **Follow** | The sequence list scrolls itself to keep your current position highlighted as you drive. |
 | **Cumbys** | A map layer of nearby gas stations with stores, bundled for offline use. |
 
-### A two-minute tour
+## A quick tour
 
 1. **Home** — big tiles for the things you need while driving. Type a number
    into **Jump to sequence** to go straight to that turn on the map.
@@ -67,7 +65,7 @@ whole route in your pocket:
   <img src="docs/screenshots/sequences.png" width="250" alt="Sequences list for a route, each card showing a direction arrow, number, street, town, rider times and flags">
 </p>
 
-### Web app vs. native app
+## Web app vs. native app
 
 | | Web app | iOS / Android |
 | --- | --- | --- |
