@@ -1,4 +1,4 @@
-export type PushRegistrationSource = "boot" | "token-refresh" | "status-sheet";
+export type PushRegistrationSource = "boot" | "token-refresh" | "status-sheet" | "heartbeat-recovery";
 
 export interface PushRegistrationDiagnostics {
   support: {

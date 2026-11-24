@@ -65,9 +65,3 @@ export async function writeCachedAddress(lat: number, lng: number, address: Reso
   entries.set(addressCacheKey(lat, lng), { ...address, lat, lng, timestampMs: Date.now() });
   await persist(entries);
 }
-
-/** Test/reset seam — drops the in-memory copy so the next read re-loads. */
-export function resetAddressCacheMemory(): void {
-  memory = null;
-  loading = null;
-}

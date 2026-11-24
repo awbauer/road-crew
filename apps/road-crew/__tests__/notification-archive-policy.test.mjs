@@ -1,8 +1,15 @@
+// @ts-check
 import assert from "node:assert/strict";
 import test from "node:test";
 
 import { retainRecentUpdateNotifications } from "../src/notifications/archivePolicy.ts";
 
+/**
+ * @param {string} id
+ * @param {import("@road-crew/core").SanitizedNotification["type"]} type
+ * @param {number} createdMs
+ * @returns {import("@road-crew/core").ArchivedNotification}
+ */
 function notification(id, type, createdMs) {
   return {
     id,

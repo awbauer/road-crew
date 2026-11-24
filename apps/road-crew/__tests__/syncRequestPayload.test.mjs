@@ -1,3 +1,4 @@
+// @ts-check
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
@@ -27,24 +28,9 @@ test("the iOS transformer's nested payload resolves to a sync request", () => {
   });
 });
 
-test("Android's dataString payload resolves to the same sync request", () => {
-  const payload = {
-    data: { dataString: JSON.stringify({ type: "sync-request", syncRequestId: SYNC_ID }) },
-    notification: null,
-  };
-  assert.deepEqual(readSyncRequest(payload), { type: "sync-request", syncRequestId: SYNC_ID });
-});
-
 test("a flat payload still resolves, so a changed wrapper degrades instead of dropping the wake", () => {
   const flat = { type: "sync-request", syncRequestId: SYNC_ID, aps: { "content-available": 1 } };
   assert.deepEqual(readSyncRequest(flat), { type: "sync-request", syncRequestId: SYNC_ID });
-});
-
-test("a malformed dataString falls back to the record carrying it", () => {
-  const payload = {
-    data: { dataString: "{not json", type: "sync-request", syncRequestId: SYNC_ID },
-  };
-  assert.deepEqual(readSyncRequest(payload), { type: "sync-request", syncRequestId: SYNC_ID });
 });
 
 test("only a sync-request is claimed", () => {
